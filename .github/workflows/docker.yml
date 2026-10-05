@@ -1,0 +1,51 @@
+name: Docker CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Baixar código
+        uses: actions/checkout@v4
+
+      - name: Ler versão
+        run: echo "VERSION=$(cat VERSION)" >> "$GITHUB_ENV"
+
+      - name: Construir imagem
+        run: |
+          docker build \
+            -t ghcr.io/${{ secrets.REGISTRY_USERNAME }}/hello-devops:${VERSION} \
+            .
+
+      - name: Testar imagem
+        run: |
+          docker run -d \
+            --name hello-test \
+            -p 8080:8080 \
+            ghcr.io/${{ secrets.REGISTRY_USERNAME }}/hello-devops:${VERSION}
+
+          sleep 10
+
+          curl --fail http://localhost:8080/hello
+
+          docker rm -f hello-test
+
+      - name: Login no GHCR
+        if: github.event_name == 'push'
+        run: |
+          echo "${{ secrets.REGISTRY_TOKEN }}" \
+            | docker login ghcr.io \
+              -u "${{ secrets.REGISTRY_USERNAME }}" \
+              --password-stdin
+
+      - name: Publicar imagem
+        if: github.event_name == 'push'
+        run: |
+          docker push \
+            ghcr.io/${{ secrets.REGISTRY_USERNAME }}/hello-devops:${VERSION}
