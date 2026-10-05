@@ -1,10 +1,7 @@
-# Hello DevOps
-
-Aplicação Spring Boot utilizada no exercício de Docker, GitHub Actions e Container Registry.
+# hello-devops
+Atividade prática de DevOps com Spring Boot, Docker, GitHub Actions e publicação de imagens no GHCR.
 
 ## Endpoint
 
 ```text
 GET /hello
-
-
