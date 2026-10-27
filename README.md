@@ -293,3 +293,22 @@ Jackson herdadas do Spring Boot 4.1.1. O parent foi atualizado para 4.1.2;
 a nova análise do `pom.xml` não encontrou vulnerabilidades. Os testes Maven
 passaram, o workflow passou no actionlint e o histórico local passou no Gitleaks.
 Essas verificações locais não substituem as evidências do GitHub Actions.
+
+### Demonstração de bloqueio e correção
+
+Na branch `test/dependencia-vulneravel`, foi adicionada intencionalmente
+`org.apache.commons:commons-text:1.9`. A execução do PR identificou
+**CVE-2022-42889**, de severidade **CRITICAL**, com correção em **1.10.0**,
+tanto no `pom.xml` quanto no JAR da imagem. O gate terminou com código 1,
+o check obrigatório reprovou e o botão de merge ficou desabilitado.
+A publicação no GHCR foi ignorada por se tratar de um PR.
+
+![PR com check obrigatório reprovado e merge bloqueado](docs/evidencias/04-pr-bloqueado.png)
+![Vulnerabilidade apontada pelo Trivy](docs/evidencias/05-trivy-vulnerabilidade.png)
+
+[Log da execução bloqueada](docs/evidencias/trivy-bloqueio.txt).
+
+A correção atualiza a dependência para **1.10.0**, no mesmo PR, mantendo os
+critérios de bloqueio. A evidência da execução remota após a correção e o SBOM
+baixado do artifact serão acrescentados após a conclusão do Actions.
+Não houve merge da versão vulnerável na main.
