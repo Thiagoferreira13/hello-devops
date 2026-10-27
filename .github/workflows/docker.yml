@@ -1,51 +1,196 @@
-name: Docker CI
+name: DevSecOps CI
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
   push:
-    branches:
-      - main
+    branches: [main]
+
+permissions:
+  contents: read
 
 jobs:
-  docker:
+  gitleaks:
+    name: Gitleaks
     runs-on: ubuntu-latest
-
+    timeout-minutes: 10
     steps:
-      - name: Baixar código
-        uses: actions/checkout@v4
-
-      - name: Ler versão
-        run: echo "VERSION=$(cat VERSION)" >> "$GITHUB_ENV"
-
-      - name: Construir imagem
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Instalar Gitleaks
+        run: bash scripts/install-security-tools.sh gitleaks
+      - name: Verificar todo o histórico
         run: |
-          docker build \
-            -t ghcr.io/${{ secrets.REGISTRY_USERNAME }}/hello-devops:${VERSION} \
-            .
+          mkdir -p reports
+          gitleaks git . --log-opts="--all" --redact --report-format json --report-path reports/gitleaks.json
+      - name: Guardar relatório sem segredos em texto aberto
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gitleaks-report
+          path: reports/gitleaks.json
+          if-no-files-found: warn
 
+  sonar:
+    name: SonarCloud Quality Gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Baixar histórico completo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Configurar Java 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+      - name: Testar e gerar cobertura
+        run: ./mvnw -B clean verify
+      - name: Analisar e aguardar Quality Gate
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          if [ -z "$SONAR_TOKEN" ]; then
+            echo "::error::Configure o repository secret SONAR_TOKEN."
+            exit 1
+          fi
+          ./mvnw -B sonar:sonar -Dsonar.qualitygate.wait=true -Dsonar.qualitygate.timeout=600
+      - name: Guardar relatórios de testes e cobertura
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: testes-e-cobertura
+          path: |
+            target/surefire-reports/
+            target/site/jacoco/
+          if-no-files-found: warn
+
+  docker:
+    name: Docker, Trivy e SBOM
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      LOCAL_IMAGE: hello-devops:${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Instalar Trivy e Syft
+        run: bash scripts/install-security-tools.sh trivy syft
+      - name: Construir imagem e preservar dependências resolvidas
+        run: |
+          docker build --pull --target builder -t hello-devops-builder:ci .
+          docker build --pull -t "$LOCAL_IMAGE" .
+      - name: Disponibilizar cache Maven para o Trivy
+        run: |
+          # O Maven já resolveu os POMs no estágio builder. Reutilizar esse cache
+          # no runner evita que o Trivy baixe novamente os mesmos POMs.
+          mkdir -p "$HOME/.m2"
+          cache_container=$(docker create hello-devops-builder:ci)
+          trap 'docker rm -f "$cache_container" >/dev/null' EXIT
+          docker cp "$cache_container:/root/.m2/repository" "$HOME/.m2/"
       - name: Testar imagem
         run: |
-          docker run -d \
-            --name hello-test \
-            -p 8080:8080 \
-            ghcr.io/${{ secrets.REGISTRY_USERNAME }}/hello-devops:${VERSION}
+          docker run -d --name hello-test -p 127.0.0.1:8080:8080 "$LOCAL_IMAGE"
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:8080/hello > /tmp/hello-response; then
+              test "$(cat /tmp/hello-response)" = 'Hello World 2'
+              exit $?
+            fi
+            sleep 2
+          done
+          docker logs hello-test
+          exit 1
+      - name: Limpar container de teste
+        if: always()
+        run: docker rm -f hello-test || true
+      - name: Gerar SBOM da imagem com Syft
+        run: |
+          mkdir -p reports
+          syft "docker:$LOCAL_IMAGE" -o spdx-json=reports/sbom.spdx.json
+      - name: Publicar SBOM como artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-${{ github.sha }}
+          path: reports/sbom.spdx.json
+          if-no-files-found: error
+      - name: Relatório completo das dependências
+        run: |
+          trivy fs --scanners vuln --skip-dirs .git,target,reports --format json --output reports/trivy-dependencies.json --exit-code 0 .
+      - name: Relatório completo da imagem
+        run: |
+          trivy image --scanners vuln --format json --output reports/trivy-image.json --exit-code 0 "$LOCAL_IMAGE"
+      - name: Bloquear HIGH e CRITICAL com correção disponível
+        run: |
+          set +e
+          trivy fs --scanners vuln --skip-dirs .git,target,reports --skip-db-update --format table --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 . > reports/dependencies-gate.txt
+          dependencies_status=$?
+          trivy image --scanners vuln --skip-db-update --format table --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 "$LOCAL_IMAGE" > reports/image-gate.txt
+          image_status=$?
+          set -e
+          cat reports/dependencies-gate.txt reports/image-gate.txt
+          if [ "$dependencies_status" -ne 0 ] || [ "$image_status" -ne 0 ]; then
+            exit 1
+          fi
+      - name: Guardar relatórios Trivy mesmo em falha
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-reports
+          path: |
+            reports/trivy-*.json
+            reports/*-gate.txt
+          if-no-files-found: warn
+      - name: Exportar a imagem aprovada para publicação
+        if: github.event_name == 'push'
+        run: docker save "$LOCAL_IMAGE" -o /tmp/image.tar
+      - name: Guardar a imagem aprovada
+        if: github.event_name == 'push'
+        uses: actions/upload-artifact@v4
+        with:
+          name: imagem-aprovada
+          path: /tmp/image.tar
+          retention-days: 1
 
-          sleep 10
-
-          curl --fail http://localhost:8080/hello
-
-          docker rm -f hello-test
-
+  publish:
+    name: Publicar GHCR
+    needs: [gitleaks, sonar, docker]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: imagem-aprovada
+          path: /tmp
+      - name: Carregar a mesma imagem testada e analisada
+        run: docker load -i /tmp/image.tar
       - name: Login no GHCR
-        if: github.event_name == 'push'
-        run: |
-          echo "${{ secrets.REGISTRY_TOKEN }}" \
-            | docker login ghcr.io \
-              -u "${{ secrets.REGISTRY_USERNAME }}" \
-              --password-stdin
-
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: printf '%s' "$GHCR_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
       - name: Publicar imagem
-        if: github.event_name == 'push'
+        env:
+          LOCAL_IMAGE: hello-devops:${{ github.sha }}
         run: |
-          docker push \
-            ghcr.io/${{ secrets.REGISTRY_USERNAME }}/hello-devops:${VERSION}
+          version=$(cat VERSION)
+          if [[ ! "$version" =~ ^[a-zA-Z0-9_][a-zA-Z0-9_.-]{0,127}$ ]]; then
+            echo "::error::Tag inválida no arquivo VERSION"
+            exit 1
+          fi
+          image="ghcr.io/${GITHUB_REPOSITORY,,}"
+          docker tag "$LOCAL_IMAGE" "$image:$version"
+          docker tag "$LOCAL_IMAGE" "$image:sha-$GITHUB_SHA"
+          docker push "$image:$version"
+          docker push "$image:sha-$GITHUB_SHA"
