@@ -82,8 +82,18 @@ jobs:
           persist-credentials: false
       - name: Instalar Trivy e Syft
         run: bash scripts/install-security-tools.sh trivy syft
-      - name: Construir imagem
-        run: docker build --pull -t "$LOCAL_IMAGE" .
+      - name: Construir imagem e preservar dependências resolvidas
+        run: |
+          docker build --pull --target builder -t hello-devops-builder:ci .
+          docker build --pull -t "$LOCAL_IMAGE" .
+      - name: Disponibilizar cache Maven para o Trivy
+        run: |
+          # O Maven já resolveu os POMs no estágio builder. Reutilizar esse cache
+          # no runner evita que o Trivy baixe novamente os mesmos POMs.
+          mkdir -p "$HOME/.m2"
+          cache_container=$(docker create hello-devops-builder:ci)
+          trap 'docker rm -f "$cache_container" >/dev/null' EXIT
+          docker cp "$cache_container:/root/.m2/repository" "$HOME/.m2/"
       - name: Testar imagem
         run: |
           docker run -d --name hello-test -p 127.0.0.1:8080:8080 "$LOCAL_IMAGE"

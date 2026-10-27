@@ -224,6 +224,11 @@ remotas; resultados das ferramentas não são presumidos como aprovados.
 | Docker, Trivy e SBOM | Build, teste HTTP, Syft e Trivy nas dependências Maven e na imagem. HIGH/CRITICAL com correção disponível bloqueiam. |
 | Publicar GHCR | Somente push na main, após sucesso de todos os checks. Publica a mesma imagem analisada, sem reconstruí-la. Nunca publica imagens de PR. |
 
+O cache Maven do estágio Docker `builder` é copiado para `~/.m2/repository`
+no runner antes do Trivy, evitando downloads repetidos de POMs e erros 429
+do Maven Central. A resolução remota permanece habilitada para dependências
+ausentes, sem ignorar silenciosamente dependências.
+
 Trivy gera relatórios JSON completos, incluindo LOW/MEDIUM e vulnerabilidades
 sem correção. Os gates usam `--severity HIGH,CRITICAL --ignore-unfixed --exit-code 1`.
 LOW/MEDIUM e vulnerabilidades sem correção são registradas, mas não bloqueiam.
