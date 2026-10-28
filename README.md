@@ -1,18 +1,31 @@
 # Hello-devops
-Atividade prática de DevOps com Spring Boot, Docker, GitHub Actions e publicação de imagens no GHCR.
 
-## Endpoint
+Aplicação Spring Boot reutilizada em duas atividades de DevOps. Cada atividade
+possui sua própria seção de documentação e evidências abaixo.
 
-```text
-GET /hello
+**Navegação:**
 
-```
+- [Atividade anterior — Docker, GitHub Actions e GHCR](#atividade-docker): build, execução e publicação das versões 1.0 e 2.0.
+- [Atividade atual — Pipeline DevSecOps](#atividade-devsecops): ferramentas de segurança, PR bloqueado, correção, SBOM e publicação após os checks.
 
-# Evidências
+**Endpoint da aplicação:** `GET /hello`.
 
-## Versão 1.0 — Hello World
+---
 
-### Build local
+<a id="atividade-docker"></a>
+
+## Atividade anterior — Docker, GitHub Actions e GHCR
+
+**Objetivo:** construir e executar a aplicação em containers, automatizar o
+pipeline no GitHub Actions e publicar as versões 1.0 e 2.0 no GHCR.
+
+**Evidências desta atividade:** comandos de build e execução, pipelines das
+versões 1.0 e 2.0 e imagens publicadas no registry. Os registros abaixo
+correspondem à entrega original dessa atividade.
+
+### Versão 1.0 — Hello World
+
+#### Build local
 
 A imagem da versão 1.0 foi construída localmente a partir do `Dockerfile`.
 
@@ -33,7 +46,7 @@ IMAGE                    ID             DISK USAGE   CONTENT SIZE
 hello-devops-local:1.0   20afd9a495c9        523MB          138MB
 ```
 
-### Execução local da versão 1.0
+#### Execução local da versão 1.0
 
 ```console
 $ docker run --rm -d --name hello-devops-local-v1 -p 8080:8080 hello-devops-local:1.0
@@ -58,7 +71,7 @@ Hello World
 
 ---
 
-## Pipeline GitHub Actions — versão 1.0
+#### Pipeline GitHub Actions — versão 1.0
 
 O push para a branch principal disparou automaticamente o workflow do GitHub Actions, responsável pelo build, teste e publicação da imagem no GitHub Container Registry.
 
@@ -69,7 +82,7 @@ O push para a branch principal disparou automaticamente o workflow do GitHub Act
 
 ---
 
-## Imagem 1.0 no GitHub Container Registry
+#### Imagem 1.0 no GitHub Container Registry
 
 Imagem publicada:
 
@@ -87,7 +100,7 @@ Status: Image is up to date for ghcr.io/thiagoferreira13/hello-devops:1.0
 ghcr.io/thiagoferreira13/hello-devops:1.0
 ```
 
-### Execução da imagem 1.0 baixada do Registry
+#### Execução da imagem 1.0 baixada do Registry
 
 ```console
 $ docker run --rm -d --name hello-devops-registry-v1 -p 8080:8080 ghcr.io/thiagoferreira13/hello-devops:1.0
@@ -112,11 +125,11 @@ Hello World
 
 ---
 
-# Versão 2.0 — Hello World 2
+### Versão 2.0 — Hello World 2
 
 Após a alteração da aplicação, uma nova versão foi criada com a tag `2.0`.
 
-### Build local
+#### Build local
 
 Imagem criada localmente:
 
@@ -126,7 +139,7 @@ IMAGE                    ID             DISK USAGE   CONTENT SIZE
 hello-devops-local:2.0   a3aa199b3f23        523MB          138MB
 ```
 
-### Execução local da versão 2.0
+#### Execução local da versão 2.0
 
 ```console
 $ docker run --rm -d --name hello-devops-local-v2 -p 8080:8080 hello-devops-local:2.0
@@ -143,7 +156,7 @@ Hello World 2
 
 ---
 
-## Pipeline GitHub Actions — versão 2.0
+#### Pipeline GitHub Actions — versão 2.0
 
 O novo push após a alteração da aplicação disparou novamente o workflow, construindo, testando e publicando a versão `2.0`.
 
@@ -154,7 +167,7 @@ O novo push após a alteração da aplicação disparou novamente o workflow, co
 
 ---
 
-## Imagem 2.0 no GitHub Container Registry
+#### Imagem 2.0 no GitHub Container Registry
 
 Imagem publicada:
 
@@ -172,7 +185,7 @@ Status: Image is up to date for ghcr.io/thiagoferreira13/hello-devops:2.0
 ghcr.io/thiagoferreira13/hello-devops:2.0
 ```
 
-### Execução da imagem 2.0 baixada do Registry
+#### Execução da imagem 2.0 baixada do Registry
 
 ```console
 $ docker run --rm -d --name hello-devops-registry-v2 -p 8080:8080 ghcr.io/thiagoferreira13/hello-devops:2.0
@@ -197,7 +210,7 @@ Hello World 2
 
 ---
 
-## Versões publicadas no GHCR
+### Versões publicadas no GHCR
 
 O GitHub Container Registry contém as duas versões exigidas pela atividade:
 
@@ -210,12 +223,32 @@ ghcr.io/thiagoferreira13/hello-devops:2.0
 
 ---
 
-## Pipeline DevSecOps
+<a id="atividade-devsecops"></a>
+
+## Trabalho Prático — Pipeline DevSecOps com GitHub Actions
+
+**Objetivo:** acrescentar segurança ao pipeline existente, impedindo a integração
+e a publicação de alterações que reprovem nas verificações obrigatórias.
+
+**Evidências desta atividade:** PR #2 bloqueado por uma CVE, aprovação após a
+correção no mesmo PR, SBOM publicado como artifact e execução na main com
+publicação no GHCR. As capturas principais são os arquivos `04` a `08`.
+
+### Links da entrega e das execuções
+
+- [Repositório](https://github.com/Thiagoferreira13/hello-devops) e [workflow YAML](.github/workflows/docker.yml).
+- [PR #2 — bloqueio e correção](https://github.com/Thiagoferreira13/hello-devops/pull/2).
+- [Execução #7 — vulnerabilidade bloqueada](https://github.com/Thiagoferreira13/hello-devops/actions/runs/40599557403), commit `44e003c`.
+- [Execução #8 — aprovada após correção](https://github.com/Thiagoferreira13/hello-devops/actions/runs/40601046980), commit `24a4332`.
+- [Execução #9 — main e publicação aprovadas](https://github.com/Thiagoferreira13/hello-devops/actions/runs/40601804353), commit `bb31486`.
+- [SBOM SPDX JSON baixado do artifact da execução #8](docs/evidencias/sbom-a0ddc872e3c5a3da171edcc4ebd66cede09c0b96/sbom.spdx.json).
+
+### Ferramentas e regras do pipeline
 
 O workflow `.github/workflows/docker.yml` roda na abertura e atualização de PRs
 e em pushes na `main`. Preserva construção Docker, teste HTTP de `/hello` e
-publicação no GHCR. A implementação local precisa ser confirmada pelas execuções
-remotas; resultados das ferramentas não são presumidos como aprovados.
+publicação no GHCR. As execuções #7, #8 e #9, vinculadas acima, demonstram
+o bloqueio, a correção e a publicação após aprovação dos checks.
 
 | Check | Verificação e regra de bloqueio |
 | --- | --- |
@@ -224,37 +257,26 @@ remotas; resultados das ferramentas não são presumidos como aprovados.
 | Docker, Trivy e SBOM | Build, teste HTTP, Syft e Trivy nas dependências Maven e na imagem. HIGH/CRITICAL com correção disponível bloqueiam. |
 | Publicar GHCR | Somente push na main, após sucesso de todos os checks. Publica a mesma imagem analisada, sem reconstruí-la. Nunca publica imagens de PR. |
 
-O cache Maven do estágio Docker `builder` é copiado para `~/.m2/repository`
-no runner antes do Trivy, evitando downloads repetidos de POMs e erros 429
-do Maven Central. A resolução remota permanece habilitada para dependências
-ausentes, sem ignorar silenciosamente dependências.
+Durante os testes do pipeline, o Trivy recebeu um erro `429` do Maven Central ao tentar baixar as dependências novamente. Para resolver isso, passei a aproveitar o cache Maven criado no build Docker, copiando-o para `~/.m2/repository` antes da análise. Se alguma dependência não estiver no cache, ela ainda pode ser consultada remotamente.
 
-Trivy gera relatórios JSON completos, incluindo LOW/MEDIUM e vulnerabilidades
-sem correção. Os gates usam `--severity HIGH,CRITICAL --ignore-unfixed --exit-code 1`.
-LOW/MEDIUM e vulnerabilidades sem correção são registradas, mas não bloqueiam.
-Erros de execução das ferramentas também fazem o job falhar.
-Não há exceções de CVEs nem `continue-on-error` nos checks.
+Configurei o Trivy para bloquear vulnerabilidades **HIGH e CRITICAL com correção disponível**. As de nível LOW e MEDIUM, assim como as que ainda não têm correção, aparecem nos relatórios, mas não impedem a execução. Os relatórios completos são salvos em JSON. Se alguma ferramenta apresentar erro, o job também falha.
 
-Gitleaks, Trivy e Syft são instalados por `scripts/install-security-tools.sh`
-com versões e SHA-256 fixos dos arquivos oficiais. Syft gera SPDX JSON a partir
-da imagem Docker construída, incluindo componentes e versões.
+O script `scripts/install-security-tools.sh` instala Gitleaks, Trivy e Syft com versões definidas e confere o SHA-256 dos arquivos baixados. O Syft analisa a imagem construída e gera o SBOM em SPDX JSON, com a lista de componentes e suas versões.
 
 ### SonarCloud
 
-Organização: `thiagoferreira13`. Projeto: `Thiagoferreira13_hello-devops`.
-O repository secret `SONAR_TOKEN` fornece a credencial; nenhum token é versionado.
-A análise automática deve estar desativada para usar a análise via CI.
+Usei a organização `thiagoferreira13` e o projeto `Thiagoferreira13_hello-devops`. O token fica salvo no secret `SONAR_TOKEN` do GitHub. A análise é executada pelo GitHub Actions.
 
-Gate selecionado: **Sonar way**, com condições sobre código novo:
-segurança, confiabilidade e manutenibilidade A; hotspots revisados 100%;
-cobertura >= 80%; duplicação <= 3%. O projeto mantém a opção padrão que ignora
-cobertura/duplicação para mudanças com menos de 20 linhas novas. As demais
-condições continuam valendo. Definição de código novo: **Previous version**.
-A versão Maven em `pom.xml` é a referência de versão da análise; o arquivo
-`VERSION` controla a tag Docker. Em PRs, a análise considera as alterações do PR.
+Mantive o Quality Gate **Sonar way**, que avalia o código novo com estes critérios:
 
-Para testes e cobertura locais: `./mvnw -B clean verify`.
-Relatórios: `target/site/jacoco/index.html` e `target/site/jacoco/jacoco.xml`.
+- Classificação A em segurança, confiabilidade e manutenibilidade.
+- Todos os novos security hotspots revisados.
+- Cobertura de testes de pelo menos 80%.
+- Duplicação de código de no máximo 3%.
+
+Também mantive a configuração padrão que dispensa a verificação de cobertura e duplicação quando a alteração tem menos de 20 linhas novas. Os outros critérios continuam sendo avaliados.
+
+Para definir código novo, selecionei **Previous version**. O Sonar usa a versão do `pom.xml` como referência, enquanto o arquivo `VERSION` define a tag da imagem Docker. Nos PRs, a análise considera as alterações propostas.
 
 ### Artifacts e publicação
 
@@ -270,29 +292,17 @@ em suas configurações de Actions. Os antigos secrets `REGISTRY_USERNAME` e
 `REGISTRY_TOKEN` não são utilizados pelo workflow novo.
 Tags publicadas: conteúdo de `VERSION` e `sha-<commit>`.
 
-### Proteção e demonstração — pendentes
+### Proteção da main
 
-Depois da primeira execução, configurar a main para exigir PR e os três checks:
+A main exige Pull Request, branch atualizada e aprovação dos checks
 `Gitleaks`, `SonarCloud Quality Gate` e `Docker, Trivy e SBOM`.
-A regra deve estar ativa e sem bypass usado na demonstração. Se o recurso não
-estiver disponível, documentar a limitação conforme o enunciado.
+A opção de impedir bypass está habilitada inclusive para administradores.
+A captura do PR bloqueado demonstra a aplicação da regra.
 
-A demonstração será feita em branch de teste: adicionar uma dependência Java
-com CVE HIGH/CRITICAL e correção disponível, abrir PR, registrar falha e bloqueio,
-e atualizar a dependência no mesmo PR. A versão vulnerável não será mesclada.
-A escolha da dependência será confirmada na base Trivy antes da demonstração.
-
-Evidências finais e links serão registrados em
-[docs/devsecops/roteiro.md](docs/devsecops/roteiro.md) após execução real.
-As capturas da atividade Docker anterior foram preservadas acima.
-
-### Validação local da implementação
-
-O Trivy identificou vulnerabilidades HIGH/CRITICAL corrigíveis em Tomcat e
-Jackson herdadas do Spring Boot 4.1.1. O parent foi atualizado para 4.1.2;
-a nova análise do `pom.xml` não encontrou vulnerabilidades. Os testes Maven
-passaram, o workflow passou no actionlint e o histórico local passou no Gitleaks.
-Essas verificações locais não substituem as evidências do GitHub Actions.
+A dependência vulnerável ficou restrita ao PR #2: o gate reprovou e o merge
+foi impedido. Após atualizar a dependência no mesmo PR, os checks passaram,
+o merge foi realizado e a execução #9 publicou a imagem corrigida.
+A configuração do workflow impede publicação de imagens em eventos de PR.
 
 ### Demonstração de bloqueio e correção
 
@@ -308,7 +318,29 @@ A publicação no GHCR foi ignorada por se tratar de um PR.
 
 [Log da execução bloqueada](docs/evidencias/trivy-bloqueio.txt).
 
-A correção atualiza a dependência para **1.10.0**, no mesmo PR, mantendo os
-critérios de bloqueio. A evidência da execução remota após a correção e o SBOM
-baixado do artifact serão acrescentados após a conclusão do Actions.
-Não houve merge da versão vulnerável na main.
+A correção atualizou a dependência para **1.10.0**, no mesmo PR, mantendo os
+critérios de bloqueio. Não houve merge da versão vulnerável na main.
+
+### Correção da vulnerabilidade
+
+Após atualizar o Apache Commons Text de `1.9` para `1.10.0`, os checks obrigatórios passaram sem desativar nenhuma regra de segurança.
+
+![PR aprovado após a correção](docs/evidencias/06-pr-aprovado.png)
+
+### SBOM publicado como artifact
+
+Na execução aprovada #8, o artifact
+`sbom-a0ddc872e3c5a3da171edcc4ebd66cede09c0b96` contém o inventário da imagem
+construída para o PR. O arquivo foi baixado e preservado neste repositório:
+[SBOM completo em SPDX JSON](docs/evidencias/sbom-a0ddc872e3c5a3da171edcc4ebd66cede09c0b96/sbom.spdx.json).
+
+
+![SBOM publicado nos artifacts da execução aprovada](docs/evidencias/07-sbom-artifact.png)
+
+### Publicação após aprovação dos checks
+
+Após o merge do PR #2, a execução #9 na main terminou com sucesso.
+Gitleaks, SonarCloud e Docker/Trivy/SBOM passaram antes da publicação no GHCR.
+A imagem publicada é a mesma construída e analisada pelo pipeline.
+
+![Pipeline na main com publicação aprovada no GHCR](docs/evidencias/08-pipeline-main-publicacao.png)
